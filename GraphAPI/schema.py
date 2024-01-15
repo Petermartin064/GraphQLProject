@@ -23,14 +23,35 @@ class HasReadType(graphene_django.DjangoObjectType):
     class Meta(object):
         model = HasRead
 
+offset = graphene.Int()
+pagination_args ={
+    'first': graphene.Int(default_value=10),
+    'offset': offset
+}
 class Query(graphene.ObjectType):
-    users = graphene.List(UserType)
-    books = graphene.List(BookType)
+    users = graphene.List(UserType, **pagination_args)
+    user = graphene.Field(UserType, id=graphene.ID(required=True))
+    books = graphene.List(BookType, fiction = graphene.Boolean(), **pagination_args)
     
-    def resolve_books(self, info):
-        return Book.objects.all()
+    def resolve_books(self, info, **kwargs):
+        fiction = kwargs.get('fiction')
+        q = Book.objects.all()
+        
+        if fiction is not None:
+            q = q.filter(fiction=fiction)
+        
+        return q
     
-    def resolve_users(self, info):
-        return UserModel.objects.all()
+    def resolve_user(self, info, **kwargs):
+        user_id = kwargs['id']
+        return UserModel.objects.get(id=user_id)
+    
+    def resolve_users(self, info, **kwargs):
+        first = kwargs.get('first')
+        offset = kwargs.get('offset')
+        
+        q = UserModel.objects.all()
+        
+        return q[offset : offset+first]
     
 schema = graphene.Schema(query=Query)
