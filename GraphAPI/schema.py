@@ -2,7 +2,7 @@ import graphene
 import graphene_django
 from django.contrib.auth.backends import UserModel
 from django.db.models import Avg
-from GraphAPI.models import Book, HasRead
+from .models import Book, HasRead
 
 class UserType(graphene_django.DjangoObjectType):
     average_rating = graphene.Float()
@@ -54,4 +54,38 @@ class Query(graphene.ObjectType):
         
         return q[offset : offset+first]
     
-schema = graphene.Schema(query=Query)
+class RateBookInput(graphene.InputObjectType):
+    bookId = graphene.ID(required=True, name='book_id')
+    userId = graphene.ID(required=True, name='user_id')
+    rating = graphene.Int(required=True)
+
+class RateBook(graphene.Mutation):
+    class Arguments:
+        input = RateBookInput(required=True)
+
+    has_read = graphene.Field(HasReadType)
+
+    def mutate(self, info, input):
+        has_read_instance = HasRead()
+        has_read_instances = has_read_instance.rate_book(input.bookId, input.userId, input.rating)
+        return RateBook(has_read=has_read_instances)
+    
+class DeleteRating(graphene.Mutation):
+    class Arguments:
+        book_id = graphene.ID(required=True)
+        user_id = graphene.ID(required=True)
+        
+    query = graphene.Field(Query)
+    
+    def mutate(self, info, book_id, user_id):
+        del_instance = HasRead()
+        del_instance.delete_rating(book_id, user_id)
+        return DeleteRating(query=Query)
+    
+            
+            
+class Mutation(graphene.ObjectType):
+    rate_book = RateBook.Field()  
+    delete_rating = DeleteRating.Field()     
+    
+schema = graphene.Schema(query=Query, mutation=Mutation)
